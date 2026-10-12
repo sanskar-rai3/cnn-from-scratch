@@ -1,5 +1,5 @@
 /*
- * Neural Network From Scratch in C
+ * Convolutional Neural Network in C from scratch
  *
  * Copyright (C) 2026 Sanskar Rai 
  *
