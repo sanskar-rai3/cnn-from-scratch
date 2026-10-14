@@ -28,7 +28,7 @@ static bool tensor_is_valid(const Tensor *t) {
     return t && t->rank > 0 && t->shape && t->strides && t->data && t->size > 0;
 }
 
-static bool tensor_size(usize rank, const usize *shape, usize *size) {
+static bool tensor_size(usize *size, usize rank, const usize *shape) {
     if (!rank || !shape || !size)
         return false;
 
@@ -68,10 +68,10 @@ Error tensor_create(Tensor *t, usize rank, const usize *shape) {
         return ERROR_INVALID_ARG;
 
     usize size;
-    if (!tensor_size(rank, shape, &size))
+    if (!tensor_size(&size, rank, shape))
         return ERROR_INVALID_ARG;
 
-    Tensor tmp = {0};
+    Tensor tmp;
 
     if (rank > SIZE_MAX / sizeof(usize))
         return ERROR_INVALID_ARG;
@@ -93,6 +93,7 @@ Error tensor_create(Tensor *t, usize rank, const usize *shape) {
     if (err != ERROR_OK) {
         free(tmp.strides);
         free(tmp.shape);
+
         return err;
     }
 
@@ -127,7 +128,7 @@ Error tensor_copy(Tensor *dest, const Tensor *src) {
     if (!dest || !tensor_is_valid(src) || dest == src)
         return ERROR_INVALID_ARG;
 
-    Tensor tmp = {0};
+    Tensor tmp;
     Error err = tensor_create(&tmp, src->rank, src->shape);
     if (err != ERROR_OK)
         return err;
@@ -163,6 +164,7 @@ Error tensor_get(float *val, const Tensor *t, const usize *index) {
     }
 
     *val = t->data[offset];
+
     return ERROR_OK;
 }
 
@@ -179,6 +181,7 @@ Error tensor_set(Tensor *t, const usize *index, float val) {
     }
 
     t->data[offset] = val;
+
     return ERROR_OK;
 }
 
@@ -193,6 +196,7 @@ Error tensor_max(float *ret, const Tensor *t) {
     }
 
     *ret = max;
+
     return ERROR_OK;
 }
 
@@ -207,6 +211,7 @@ Error tensor_min(float *ret, const Tensor *t) {
     }
 
     *ret = min;
+
     return ERROR_OK;
 }
 
@@ -219,6 +224,7 @@ Error tensor_sum(float *ret, const Tensor *t) {
         sum += t->data[i];
 
     *ret = sum;
+
     return ERROR_OK;
 }
 
@@ -281,6 +287,7 @@ Error tensor_he_uniform(Tensor *t, usize fan_in) {
         return ERROR_INVALID_ARG;
 
     float limit = sqrtf(6.0f / (float)fan_in);
+
     return tensor_randomize(t, -limit, limit);
 }
 
@@ -290,6 +297,7 @@ Error tensor_xavier_uniform(Tensor *t, usize fan_in, usize fan_out) {
         return ERROR_INVALID_ARG;
 
     float limit = sqrtf(6.0f / (float)(fan_in + fan_out));
+
     return tensor_randomize(t, -limit, limit);
 }
 
@@ -326,7 +334,7 @@ Error tensor_reshape(Tensor *t, usize rank, const usize *shape) {
         return ERROR_INVALID_ARG;
 
     usize size;
-    if (!tensor_size(rank, shape, &size) || size != t->size)
+    if (!tensor_size(&size, rank, shape) || size != t->size)
         return ERROR_INVALID_ARG;
 
     usize *new_shape = malloc(rank * sizeof(*new_shape));
@@ -338,6 +346,7 @@ Error tensor_reshape(Tensor *t, usize rank, const usize *shape) {
     usize *new_strides = malloc(rank * sizeof(*new_strides));
     if (!new_strides) {
         free(new_shape);
+
         return ERROR_ALLOCATION_FAILED;
     }
 
@@ -345,6 +354,7 @@ Error tensor_reshape(Tensor *t, usize rank, const usize *shape) {
     if (err != ERROR_OK) {
         free(new_strides);
         free(new_shape);
+
         return err;
     }
 
