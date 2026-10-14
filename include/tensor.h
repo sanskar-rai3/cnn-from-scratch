@@ -21,6 +21,7 @@
 #define TENSOR_H
 
 #include "common.h"
+#include "error.h"
 
 typedef struct {
     usize *shape;
@@ -32,27 +33,27 @@ typedef struct {
     float *data;
 } Tensor;
 
-void tensor_create(Tensor *t, usize rank, const usize *shape);
+Error tensor_create(Tensor *t, usize rank, const usize *shape);
 void tensor_destroy(Tensor *t);
 
-void tensor_copy(Tensor *dest, const Tensor *src);
-void tensor_fill(Tensor *t, float val);
+Error tensor_copy(Tensor *dest, const Tensor *src);
+Error tensor_fill(Tensor *t, float val);
 
-void tensor_get(float *val, const Tensor *t, const usize *index);
-void tensor_set(Tensor *t, const usize *index, float val);
+Error tensor_get(float *val, const Tensor *t, const usize *index);
+Error tensor_set(Tensor *t, const usize *index, float val);
 
-void tensor_max(float *ret, const Tensor *t);
-void tensor_min(float *ret, const Tensor *t);
-void tensor_sum(float *ret, const Tensor *t);
+Error tensor_max(float *ret, const Tensor *t);
+Error tensor_min(float *ret, const Tensor *t);
+Error tensor_sum(float *ret, const Tensor *t);
 
-void tensor_hadamard_multiply(Tensor *result, const Tensor *a, const Tensor *b);
-void tensor_scalar_multiply(Tensor *result, const Tensor *t, float scalar);
+Error tensor_hadamard_multiply(Tensor *result, const Tensor *a, const Tensor *b);
+Error tensor_scalar_multiply(Tensor *result, const Tensor *t, float scalar);
 
-void tensor_randomize(Tensor *t, float min, float max);
-void tensor_he_uniform(Tensor *t, usize fan_in);
-void tensor_xavier_uniform(Tensor *t, usize fan_in, usize fan_out);
+Error tensor_randomize(Tensor *t, float min, float max);
+Error tensor_he_uniform(Tensor *t, usize fan_in);
+Error tensor_xavier_uniform(Tensor *t, usize fan_in, usize fan_out);
 
-void tensor_flatten(Tensor *t);
-void tensor_reshape(Tensor *t, usize rank, const usize *shape);
+Error tensor_flatten(Tensor *t);
+Error tensor_reshape(Tensor *t, usize rank, const usize *shape);
 
 #endif /* TENSOR_H */

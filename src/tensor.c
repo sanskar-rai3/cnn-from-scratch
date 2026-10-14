@@ -17,7 +17,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "common.h"
 #include "tensor.h"
 
 #include <stdlib.h>
@@ -25,130 +24,241 @@
 #include <time.h>
 #include <math.h>
 
+static bool tensor_is_valid(const Tensor *t) {
+    return t && t->rank > 0 && t->shape && t->strides && t->data && t->size > 0;
+}
 
-// error handling will be implemented later
+static bool tensor_size(usize rank, const usize *shape, usize *size) {
+    if (!rank || !shape || !size)
+        return false;
 
-void tensor_create(Tensor *t, usize rank, const usize *shape) {
-    t->rank = rank;
-
-    t->shape = malloc(rank * sizeof(usize));
-    if (!t->shape) {
-        // error handling
-    }
-
-    memcpy(t->shape, shape, rank * sizeof(usize));
-
-    t->size = 1;
+    usize total = 1;
     for (usize i = 0; i < rank; i++) {
-        t->size *= t->shape[i];
+        if (!shape[i] || total > SIZE_MAX / shape[i])
+            return false;
+
+        total *= shape[i];
     }
 
-    t->strides = malloc(rank * sizeof(usize));
-    if (!t->strides) {
-        // error handling
-    }
+    if (total > SIZE_MAX / sizeof(float))
+        return false;
 
-    t->strides[rank - 1] = 1;
+    *size = total;
+
+    return true;
+}
+
+static Error tensor_build_strides(usize *strides, usize rank, const usize *shape) {
+    if (!strides || !rank || !shape)
+        return ERROR_INVALID_ARG;
+
+    strides[rank - 1] = 1;
     for (usize i = rank - 1; i > 0; i--) {
-        t->strides[i - 1] = t->strides[i] * t->shape[i];
+        if (strides[i] > SIZE_MAX / shape[i])
+            return ERROR_INVALID_ARG;
+
+        strides[i - 1] = strides[i] * shape[i];
     }
 
-    t->data = malloc(t->size * sizeof(float));
-    if (!t->data) {
-        // error handling
+    return ERROR_OK;
+}
+
+Error tensor_create(Tensor *t, usize rank, const usize *shape) {
+    if (!t || !shape || !rank)
+        return ERROR_INVALID_ARG;
+
+    usize size;
+    if (!tensor_size(rank, shape, &size))
+        return ERROR_INVALID_ARG;
+
+    Tensor tmp = {0};
+
+    if (rank > SIZE_MAX / sizeof(usize))
+        return ERROR_INVALID_ARG;
+
+    tmp.shape = malloc(rank * sizeof(*tmp.shape));
+    if (!tmp.shape)
+        return ERROR_ALLOCATION_FAILED;
+
+    memcpy(tmp.shape, shape, rank * sizeof(*tmp.shape));
+
+    tmp.strides = malloc(rank * sizeof(*tmp.strides));
+    if (!tmp.strides) {
+        free(tmp.shape);
+
+        return ERROR_ALLOCATION_FAILED;
     }
+
+    Error err = tensor_build_strides(tmp.strides, rank, tmp.shape);
+    if (err != ERROR_OK) {
+        free(tmp.strides);
+        free(tmp.shape);
+        return err;
+    }
+
+    tmp.data = malloc(size * sizeof(*tmp.data));
+    if (!tmp.data) {
+        free(tmp.strides);
+        free(tmp.shape);
+
+        return ERROR_ALLOCATION_FAILED;
+    }
+
+    tmp.rank = rank;
+    tmp.size = size;
+
+    *t = tmp;
+
+    return ERROR_OK;
 }
 
 void tensor_destroy(Tensor *t) {
+    if (!t)
+        return;
+
     free(t->data);
     free(t->shape);
     free(t->strides);
 
-    t->size    = 0;
-    t->rank    = 0;
-    t->shape   = NULL;
-    t->strides = NULL;
+    *t = (Tensor){0};
 }
 
-void tensor_copy(Tensor *dest, const Tensor *src) {
-    tensor_create(dest, src->rank, src->shape);    
-    memcpy(dest->data, src->data, src->size * sizeof(usize));
+Error tensor_copy(Tensor *dest, const Tensor *src) {
+    if (!dest || !tensor_is_valid(src) || dest == src)
+        return ERROR_INVALID_ARG;
+
+    Tensor tmp = {0};
+    Error err = tensor_create(&tmp, src->rank, src->shape);
+    if (err != ERROR_OK)
+        return err;
+
+    memcpy(tmp.data, src->data, src->size * sizeof(*src->data));
+
+    tensor_destroy(dest);
+    *dest = tmp;
+
+    return ERROR_OK;
 }
 
-void tensor_fill(Tensor *t, float val) {
-    for (usize i = 0; i < t->size; i++) {
+Error tensor_fill(Tensor *t, float val) {
+    if (!tensor_is_valid(t))
+        return ERROR_INVALID_ARG;
+
+    for (usize i = 0; i < t->size; i++)
         t->data[i] = val;
-    }
+
+    return ERROR_OK;
 }
 
-void tensor_get(float *val, const Tensor *t, const usize *index) {
-    int offset = 0;
+Error tensor_get(float *val, const Tensor *t, const usize *index) {
+    if (!val || !tensor_is_valid(t) || !index)
+        return ERROR_INVALID_ARG;
+
+    usize offset = 0;
     for (usize i = 0; i < t->rank; i++) {
-        index += t->strides[i] * index[i]; 
+        if (index[i] >= t->shape[i])
+            return ERROR_INVALID_ARG;
+
+        offset += index[i] * t->strides[i];
     }
 
     *val = t->data[offset];
+    return ERROR_OK;
 }
 
-void tensor_set(Tensor *t, const usize *index, float val) {
-    int offset = 0;
+Error tensor_set(Tensor *t, const usize *index, float val) {
+    if (!tensor_is_valid(t) || !index)
+        return ERROR_INVALID_ARG;
+
+    usize offset = 0;
     for (usize i = 0; i < t->rank; i++) {
-        index += t->strides[i] * index[i]; 
+        if (index[i] >= t->shape[i])
+            return ERROR_INVALID_ARG;
+
+        offset += index[i] * t->strides[i];
     }
 
     t->data[offset] = val;
-} 
+    return ERROR_OK;
+}
 
-void tensor_max(float *ret, const Tensor *t) {
+Error tensor_max(float *ret, const Tensor *t) {
+    if (!ret || !tensor_is_valid(t))
+        return ERROR_INVALID_ARG;
+
     float max = t->data[0];
-
     for (usize i = 1; i < t->size; i++) {
-        if (t->data[i] > max) {
+        if (t->data[i] > max)
             max = t->data[i];
-        }
     }
 
     *ret = max;
+    return ERROR_OK;
 }
 
-void tensor_min(float *ret, const Tensor *t) {
-    float min = t->data[0];
+Error tensor_min(float *ret, const Tensor *t) {
+    if (!ret || !tensor_is_valid(t))
+        return ERROR_INVALID_ARG;
 
+    float min = t->data[0];
     for (usize i = 1; i < t->size; i++) {
-        if (t->data[i] < min) {
+        if (t->data[i] < min)
             min = t->data[i];
-        }
     }
 
     *ret = min;
+    return ERROR_OK;
 }
 
-void tensor_sum(float *ret, const Tensor *t) {
-    float sum = 0.0f;
+Error tensor_sum(float *ret, const Tensor *t) {
+    if (!ret || !tensor_is_valid(t))
+        return ERROR_INVALID_ARG;
 
-    for (usize i = 0; i < t->size; i++) {
+    float sum = 0.0f;
+    for (usize i = 0; i < t->size; i++)
         sum += t->data[i];
-    }
 
     *ret = sum;
+    return ERROR_OK;
 }
 
-void tensor_hadamard_multiply(Tensor *result, const Tensor *a, const Tensor *b) {
-    for (usize i = 0; i < result->size; i++) {
+static bool tensor_same_shape(const Tensor *a, const Tensor *b) {
+    if (!tensor_is_valid(a) || !tensor_is_valid(b) ||
+        a->rank != b->rank || a->size != b->size)
+        return false;
+
+    for (usize i = 0; i < a->rank; i++) {
+        if (a->shape[i] != b->shape[i])
+            return false;
+    }
+
+    return true;
+}
+
+Error tensor_hadamard_multiply(Tensor *result, const Tensor *a, const Tensor *b) {
+    if (!tensor_same_shape(a, b) || !tensor_same_shape(result, a))
+        return ERROR_INVALID_ARG;
+
+    for (usize i = 0; i < result->size; i++)
         result->data[i] = a->data[i] * b->data[i];
-    }
+
+    return ERROR_OK;
 }
 
-void tensor_scalar_multiply(Tensor *result, const Tensor *t, float scalar) {
-    for (usize i = 0; i < result->size; i++) {
+Error tensor_scalar_multiply(Tensor *result, const Tensor *t, float scalar) {
+    if (!tensor_same_shape(result, t))
+        return ERROR_INVALID_ARG;
+
+    for (usize i = 0; i < result->size; i++)
         result->data[i] = scalar * t->data[i];
-    }
+
+    return ERROR_OK;
 }
 
-static inline float random_float(float min, float max) {
-    static bool seeded = false;
+static float random_float(float min, float max) {
+    static bool seeded;
     if (!seeded) {
-        srand(time(NULL));
+        srand((unsigned int)time(NULL));
         seeded = true;
     }
 
@@ -156,73 +266,94 @@ static inline float random_float(float min, float max) {
     return min + scale * (max - min);
 }
 
-void tensor_randomize(Tensor *t, float min, float max) {
-    for (usize i = 0; i < t->size; i++) {
+Error tensor_randomize(Tensor *t, float min, float max) {
+    if (!tensor_is_valid(t) || !isfinite(min) || !isfinite(max) || min > max)
+        return ERROR_INVALID_ARG;
+
+    for (usize i = 0; i < t->size; i++)
         t->data[i] = random_float(min, max);
-    }
+
+    return ERROR_OK;
 }
 
-void tensor_he_uniform(Tensor *t, usize fan_in) {
+Error tensor_he_uniform(Tensor *t, usize fan_in) {
+    if (!tensor_is_valid(t) || !fan_in)
+        return ERROR_INVALID_ARG;
+
     float limit = sqrtf(6.0f / (float)fan_in);
-    tensor_randomize(t, -limit, limit);
+    return tensor_randomize(t, -limit, limit);
 }
 
-void tensor_xavier_uniform(Tensor *t, usize fan_in, usize fan_out) {
+Error tensor_xavier_uniform(Tensor *t, usize fan_in, usize fan_out) {
+    if (!tensor_is_valid(t) || !fan_in || !fan_out ||
+        fan_in > SIZE_MAX - fan_out)
+        return ERROR_INVALID_ARG;
+
     float limit = sqrtf(6.0f / (float)(fan_in + fan_out));
-    tensor_randomize(t, -limit, limit);
+    return tensor_randomize(t, -limit, limit);
 }
 
-void tensor_flatten(Tensor *t) {
-    t->rank = 1;
+Error tensor_flatten(Tensor *t) {
+    if (!tensor_is_valid(t))
+        return ERROR_INVALID_ARG;
 
-    free(t->strides);
-    t->strides = malloc(sizeof(usize));
-    if (!t->strides) {
-        // error handling
+    usize *shape = malloc(sizeof(*shape));
+    if (!shape)
+        return ERROR_ALLOCATION_FAILED;
+
+    usize *strides = malloc(sizeof(*strides));
+    if (!strides) {
+        free(shape);
+        return ERROR_ALLOCATION_FAILED;
     }
 
-    t->strides[0] = 1;
+    shape[0] = t->size;
+    strides[0] = 1;
 
     free(t->shape);
-    t->shape = malloc(sizeof(usize));
-    if (!t->shape) {
-        // error handling
-    }
+    free(t->strides);
 
-    t->shape[0] = t->size;
+    t->shape = shape;
+    t->strides = strides;
+    t->rank = 1;
+
+    return ERROR_OK;
 }
 
-void tensor_reshape(Tensor *t, usize rank, const usize *shape) {
-    usize size = 1;
+Error tensor_reshape(Tensor *t, usize rank, const usize *shape) {
+    if (!tensor_is_valid(t) || !shape || !rank ||
+        rank > SIZE_MAX / sizeof(usize))
+        return ERROR_INVALID_ARG;
 
-    for (usize i = 0; i < rank; i++)
-        size *= shape[i];
+    usize size;
+    if (!tensor_size(rank, shape, &size) || size != t->size)
+        return ERROR_INVALID_ARG;
 
-    if (size != t->size) {
-        return;
+    usize *new_shape = malloc(rank * sizeof(*new_shape));
+    if (!new_shape)
+        return ERROR_ALLOCATION_FAILED;
+
+    memcpy(new_shape, shape, rank * sizeof(*new_shape));
+
+    usize *new_strides = malloc(rank * sizeof(*new_strides));
+    if (!new_strides) {
+        free(new_shape);
+        return ERROR_ALLOCATION_FAILED;
     }
 
+    Error err = tensor_build_strides(new_strides, rank, new_shape);
+    if (err != ERROR_OK) {
+        free(new_strides);
+        free(new_shape);
+        return err;
+    }
+
+    free(t->shape);
+    free(t->strides);
+
+    t->shape = new_shape;
+    t->strides = new_strides;
     t->rank = rank;
 
-    t->shape = malloc(rank * sizeof(usize));
-    if (!t->shape) {
-        // error handling
-    }
-
-    memcpy(t->shape, shape, rank * sizeof(usize));
-
-    t->size = 1;
-    for (usize i = 0; i < rank; i++) {
-        t->size *= t->shape[i];
-    }
-
-    t->strides = malloc(rank * sizeof(usize));
-    if (!t->strides) {
-        // error handling
-    }
-
-    t->strides[rank - 1] = 1;
-    for (usize i = rank - 1; i > 0; i--) {
-        t->strides[i - 1] = t->strides[i] * t->shape[i];
-    }
+    return ERROR_OK;
 }
