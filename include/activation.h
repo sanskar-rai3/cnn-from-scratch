@@ -28,9 +28,9 @@ typedef enum ActivationType {
     ACT_LEAKY_RELU,
     ACT_TANH,
     ACT_SIGMOID,
-    ACT_SOFTMAX_CEL
+    ACT_SOFTMAX
 } ActivationType;
 
-void activation_forward(Tensor *t, ActivationType activation);
+void activation_forward(Tensor *t, ActivationType type);
 
-#endif
+#endif /* ACTIVATION_H */
