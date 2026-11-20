@@ -22,7 +22,6 @@
 
 #include "common.h"
 #include "tensor.h"
-#include "error.h"
 
 typedef struct {
     Tensor weights;
@@ -35,7 +34,7 @@ typedef struct {
 } DenseConfig;
 
 Error dense_init(Dense *dense_layer, const DenseConfig *config);
-void dense_destroy(Dense *layer);
+void dense_destroy(Dense *dense_layer);
 
 Error dense_forward(Tensor *output, Dense *dense_layer, const Tensor *input);
 

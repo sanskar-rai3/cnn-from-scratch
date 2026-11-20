@@ -63,3 +63,18 @@ void dense_destroy(Dense *dense_layer) {
     tensor_destroy(&dense_layer->weights);
     tensor_destroy(&dense_layer->bias);
 }
+
+Error dense_forward(Tensor *output, Dense *dense_layer, const Tensor *input) {
+    if (!output || !dense_layer || !input)
+        return ERROR_INVALID_ARG;
+
+    Error err = tensor_matrix_multiply(output, input, &dense_layer->weights);
+    if (err != ERROR_OK)
+        return err;
+
+    err = tensor_matrix_add_row_inplace(output, &dense_layer->bias); 
+    if (err != ERROR_OK)
+        return err;
+
+    return ERROR_OK;
+}

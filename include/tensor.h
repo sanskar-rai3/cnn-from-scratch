@@ -48,7 +48,9 @@ Error tensor_sum(float *ret, const Tensor *t);
 
 Error tensor_hadamard_multiply(Tensor *result, const Tensor *a, const Tensor *b);
 Error tensor_scalar_multiply(Tensor *result, const Tensor *t, float scalar);
+
 Error tensor_matrix_multiply(Tensor *result, const Tensor *a, const Tensor *b);
+Error tensor_matrix_add_row_inplace(Tensor *t, const Tensor *row);
 
 Error tensor_randomize(Tensor *t, float min, float max);
 Error tensor_he_uniform(Tensor *t, usize fan_in);

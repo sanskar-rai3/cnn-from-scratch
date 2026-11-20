@@ -312,6 +312,36 @@ Error tensor_matrix_multiply(Tensor *result, const Tensor *a, const Tensor *b) {
     return ERROR_OK;
 }
 
+Error tensor_matrix_add_row_inplace(Tensor *t, const Tensor *row) {
+    if (!tensor_is_valid(t) || !tensor_is_valid(row))
+        return ERROR_INVALID_ARG;
+
+    if (t->rank != 2 || !row->rank != 1)
+        return ERROR_INVALID_ARG;
+
+    if (t->shape[1] != row->shape[0])
+        return ERROR_INVALID_ARG;
+
+    usize index[2];
+    usize row_index;
+
+    for (usize r = 0; r < t->shape[0]; r++) {
+        index[0] = r;
+        for (usize c = 0; c < t->shape[1]; c++) {
+            index[1] = c;
+            row_index = c;
+
+            float val, row_val;
+
+            tensor_get(&val, t, index);
+            tensor_get(&row_val, row, &row_index);
+            tensor_set(t, index, val + row_val);
+        }
+    }
+
+    return ERROR_OK;
+}
+
 static float random_float(float min, float max) {
     static bool seeded;
     if (!seeded) {
