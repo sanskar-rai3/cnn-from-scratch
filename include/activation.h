@@ -31,6 +31,6 @@ typedef enum ActivationType {
     ACT_SOFTMAX
 } ActivationType;
 
-void activation_forward(Tensor *t, ActivationType type);
+Error activation_forward(Tensor *t, ActivationType type);
 
 #endif /* ACTIVATION_H */
