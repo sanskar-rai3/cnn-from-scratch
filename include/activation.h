@@ -32,5 +32,9 @@ typedef enum ActivationType {
 } ActivationType;
 
 Error activation_forward(Tensor *t, ActivationType type);
+/* ↑
+ * This is an inplace function, 
+ * Following the conventional format 'foo(out, ...)' would be useless here. :(
+ */
 
 #endif /* ACTIVATION_H */
