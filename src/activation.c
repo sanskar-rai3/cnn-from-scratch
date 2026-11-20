@@ -63,6 +63,9 @@ static void softmax_(Tensor *t) {
 }
 
 Error activation_forward(Tensor *t, ActivationType type) {
+    if (!t)
+        return ERROR_INVALID_ARG;
+
     switch (type) {
         case ACT_RELU:
             relu_(t);
