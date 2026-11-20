@@ -261,6 +261,57 @@ Error tensor_scalar_multiply(Tensor *result, const Tensor *t, float scalar) {
     return ERROR_OK;
 }
 
+Error tensor_matrix_multiply(Tensor *result, const Tensor *a, const Tensor *b) {
+    if (!tensor_is_valid(result) ||
+        !tensor_is_valid(a) || !tensor_is_valid(b) ||
+        a->rank != 2 || b->rank != 2 || result->rank != 2)
+        return ERROR_INVALID_ARG;
+   
+    // Checking the dimensions of the matrices.
+    if (a->shape[1] != b->shape[0])
+        return ERROR_INVALID_ARG;
+
+    usize m = a->shape[0]; 
+    usize n = a->shape[1]; 
+    usize p = b->shape[1]; 
+
+    // Checking result dimensions.
+    if (result->shape[0] != m || result->shape[1] != p)
+        return ERROR_INVALID_ARG;
+
+    Error err = ERROR_OK;
+    for (usize i = 0; i < m; i++) {
+        for (usize j = 0; j < p; j++) {
+            float sum = 0.0f;
+
+            for (usize k = 0; k < n; k++) {
+                usize a_idx[] = {i, k};
+                usize b_idx[] = {k, j};
+
+                float a_val, b_val;
+
+                err = tensor_get(&a_val, a, a_idx);
+                if (err != ERROR_OK)
+                    return err;
+
+                err = tensor_get(&b_val, b, b_idx);
+                if (err != ERROR_OK)
+                    return err;
+
+                sum += a_val * b_val;
+            }
+
+            usize result_idx[] = {i, j};
+
+            err = tensor_set(result, result_idx, sum);
+            if (err != ERROR_OK)
+                return err;
+        }
+    }
+
+    return ERROR_OK;
+}
+
 static float random_float(float min, float max) {
     static bool seeded;
     if (!seeded) {
