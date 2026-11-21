@@ -91,7 +91,7 @@ Error activation_forward(Tensor *t, ActivationType type) {
             break;
 
         default:
-            return ERROR_INVALID_ARG;
+            return ERROR_UNKOWN_TYPE;
     }
 
     return ERROR_OK;
