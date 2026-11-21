@@ -23,7 +23,8 @@
 typedef enum {
     ERROR_OK = 0,
     ERROR_INVALID_ARG,
-    ERROR_ALLOCATION_FAILED
+    ERROR_ALLOCATION_FAILED,
+    ERROR_UNKOWN_TYPE
 } Error;
 
 #endif /* ERROR_H */
